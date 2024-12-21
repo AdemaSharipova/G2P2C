@@ -1,6 +1,5 @@
 import argparse
-from decouple import config
-MAIN_PATH = config('MAIN_PATH')
+MAIN_PATH='/Users/adema/VSProjects/RL/G2P2C'
 
 
 class Options:

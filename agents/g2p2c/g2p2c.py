@@ -47,6 +47,11 @@ class G2P2C:
         self.aux_pi_coef = args.aux_pi_coef
         self.aux_lr = args.aux_lr
 
+        # Physical activity integration
+        self.n_activity_features = args.n_activity_features  # Add activity_feat dimension
+        self.activity_feat = torch.rand(self.n_training_workers, self.n_step, 1, self.n_activity_features,
+                                        device=self.device)
+
         # planning phase
         self.use_planning = True if args.use_planning == 'yes' else False
         self.n_planning_simulations = args.n_planning_simulations
@@ -130,6 +135,7 @@ class G2P2C:
         '''concat data from different workers'''
         s_hist = self.old_states.view(-1, self.feature_history, self.n_features)
         s_handcraft = self.feat.view(-1, 1, self.n_handcrafted_features)
+        activity_feat = self.activity_feat.view(-1, 1, self.n_activity_features)
         act = self.old_actions.view(-1, 1)
         logp = self.old_logprobs.view(-1, 1)
         v_targ = self.v_targ.view(-1)
@@ -138,7 +144,7 @@ class G2P2C:
         first_flag = self.first_flag.view(-1)
         buffer_len = s_hist.shape[0]
 
-        self.AuxiliaryBuffer.update(s_hist, s_handcraft, cgm_target, act, first_flag)
+        self.AuxiliaryBuffer.update(s_hist, s_handcraft, activity_feat, cgm_target, act, first_flag)
 
         if self.shuffle_rollout:
             rand_perm = torch.randperm(buffer_len)
@@ -150,8 +156,11 @@ class G2P2C:
             adv = adv[rand_perm]  # torch.Size([batch])
             cgm_target = cgm_target[rand_perm]
 
-        self.rollout_buffer = dict(s_hist=s_hist, s_handcraft=s_handcraft, act=act, logp=logp, ret=v_targ,
-                                   adv=adv, len=buffer_len, cgm_target=cgm_target)
+        # Store activity_feat in the buffer
+        self.rollout_buffer = dict(
+            s_hist=s_hist, s_handcraft=s_handcraft, activity_feat=activity_feat, act=act, logp=logp,
+            ret=v_targ, adv=adv, len=buffer_len, cgm_target=cgm_target
+        )
 
     def train_pi(self):
         print('Running pi update...')
@@ -165,12 +174,13 @@ class G2P2C:
                 end_idx = min(start_idx + self.batch_size, buffer_len)
                 old_states_batch = self.rollout_buffer['s_hist'][start_idx:end_idx, :, :]
                 feat_batch = self.rollout_buffer['s_handcraft'][start_idx:end_idx, :, :]
+                activity_feat_batch = self.rollout_buffer['activity_feat'][start_idx:end_idx, :, :]
                 old_actions_batch = self.rollout_buffer['act'][start_idx:end_idx, :]
                 old_logprobs_batch = self.rollout_buffer['logp'][start_idx:end_idx, :]
                 advantages_batch = self.rollout_buffer['adv'][start_idx:end_idx]
                 advantages_batch = (advantages_batch - advantages_batch.mean()) / (advantages_batch.std() + 1e-5)
                 self.optimizer_Actor.zero_grad()
-                logprobs, dist_entropy, _, _ = self.policy.evaluate_actor(old_states_batch, old_actions_batch, feat_batch)
+                logprobs, dist_entropy, _, _ = self.policy.evaluate_actor(old_states_batch, old_actions_batch, feat_batch, activity_feat_batch)
                 ratios = torch.exp(logprobs - old_logprobs_batch)
                 ratios = ratios.squeeze()
                 surr1 = ratios * advantages_batch

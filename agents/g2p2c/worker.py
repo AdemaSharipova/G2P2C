@@ -34,11 +34,11 @@ class Worker:
         self.reinit_flag = False
         self.init_env()
         self.log1_columns = ['epi', 't', 'cgm', 'meal', 'ins', 'rew', 'rl_ins', 'mu', 'sigma',
-                             'prob', 'state_val', 'day_hour', 'day_min']
+                             'prob', 'state_val', 'day_hour', 'day_min', 'activity_intensity', 'activity_duration'] # add here physical activites
         self.log2_columns = ['epi', 't', 'reward', 'normo', 'hypo', 'sev_hypo', 'hyper', 'lgbi',
                              'hgbi', 'ri', 'sev_hyper', 'aBGP_rmse', 'cBGP_rmse']
-        self.save_log([self.log1_columns], '/'+self.worker_mode+'/data/logs_worker_')
-        self.save_log([self.log2_columns], '/'+self.worker_mode+'/data/'+self.worker_mode+'_episode_summary_')
+        self.save_log([self.log1_columns], '/' + self.worker_mode + '/data/logs_worker_')
+        self.save_log([self.log2_columns], '/' + self.worker_mode + '/data/' + self.worker_mode + '_episode_summary_')
 
     def init_env(self):
         if not self.reinit_flag:
@@ -51,14 +51,18 @@ class Worker:
 
     def calibration_process(self):
         self.reinit_flag, cur_cgm = False, 0
-        for t in range(0, self.calibration):  # open-loop simulation for calibration period.
+        for t in range(0, self.calibration):  # open-loop simulation for calibration period
             state, reward, is_done, info = self.env.step(self.std_basal)
             cur_cgm = state.CGM
             self.cur_state, self.feat = self.state_space.update(cgm=state.CGM, ins=self.std_basal,
                                                                 meal=info['remaining_time'], hour=self.counter,
-                                                                meal_type=info['meal_type'])  # info['day_hour']
+                                                                meal_type=info['meal_type'],  # Adding meal type
+                                                                activity_intensity=info.get('activity_intensity', 0),
+                                                                activity_duration=info.get('activity_duration',
+                                                                                           0))
             self.reinit_flag = True if info['meal_type'] != 0 else False  # meal_type zero -> no meal
-        if (cur_cgm < 110 or 130 < cur_cgm) and self.worker_mode != 'training':  # checking simulati start within normo
+        if (
+                cur_cgm < 110 or 130 < cur_cgm) and self.worker_mode != 'training':  # checking simulation starts within normo range
             self.reinit_flag = True
         if self.reinit_flag:
             self.init_env()
@@ -80,41 +84,49 @@ class Worker:
             state, _reward, is_done, info = self.env.step(pump_action)
             reward = composite_reward(self.args, state=state.CGM, reward=_reward)
             self.bgp_buffer.update(policy_step['a_cgm'], policy_step['c_cgm'], state.CGM)
-            # calulate the horison pred error rmse
+            # Calculate the horizon predicted error RMSE
             horizon_calc_done, err = self.CGPredHorizon.update(self.cur_state, self.feat, policy_step['action'][0],
                                                                state.CGM, policy)
             if horizon_calc_done:
                 a_horizonBG_rmse += err[0]
                 horizon_rmse_count += 1
 
-            if self.worker_mode == 'training':   # store -> rollout for training
+            if self.worker_mode == 'training':  # store -> rollout for training
                 scaled_cgm = linear_scaling(x=state.CGM, x_min=self.args.glucose_min, x_max=self.args.glucose_max)
                 self.memory.store(self.cur_state, self.feat, policy_step['action'][0],
                                   reward, policy_step['state_value'], policy_step['log_prob'], scaled_cgm, self.counter)
             # update -> state.
             self.cur_state, self.feat = self.state_space.update(cgm=state.CGM, ins=pump_action,
-                                                                meal=info['remaining_time'], hour=(self.counter+1),
-                                                                meal_type=info['meal_type'], carbs=info['future_carb']) #info['day_hour']
-            self.episode_history[self.counter] = [self.episode, self.counter, state.CGM, info['meal'] * info['sample_time'],
-                                                  pump_action, reward, rl_action, policy_step['mu'][0], policy_step['std'][0],
-                                                  policy_step['log_prob'][0], policy_step['state_value'][0], info['day_hour'],
-                                                  info['day_min']]
+                                                                meal=info['remaining_time'], hour=(self.counter + 1),
+                                                                meal_type=info['meal_type'], carbs=info['future_carb'],
+                                                                activity_intensity=info.get('activity_intensity', 0),
+                                                                activity_duration=info.get('activity_duration', 0))
+            self.episode_history[self.counter] = [self.episode, self.counter, state.CGM,
+                                                  info['meal'] * info['sample_time'], pump_action, reward, rl_action,
+                                                  policy_step['mu'][0], policy_step['std'][0],
+                                                  policy_step['log_prob'][0],
+                                                  policy_step['state_value'][0], info['day_hour'], info['day_min'],
+                                                  info.get('activity_intensity', 0),
+                                                  info.get('activity_duration', 0)]  # Log activity features
             self.counter += 1
             stop_factor = (self.max_epi_length - 1) if self.worker_mode == 'training' else (self.max_test_epi_len - 1)
 
             criteria = state.CGM <= 40 or state.CGM >= 600 or self.counter > stop_factor
-            if criteria:  # episode termination criteria.
+            if criteria:  # episode termination criteria
                 if self.worker_mode == 'training':
                     final_val = policy.get_final_value(self.cur_state, self.feat)
                     self.memory.finish_path(final_val)
 
                 df = pd.DataFrame(self.episode_history[0:self.counter], columns=self.log1_columns)
-                df.to_csv(self.args.experiment_dir + '/' + self.worker_mode + '/data/logs_worker_' + str(self.worker_id) + '.csv',
+                df.to_csv(self.args.experiment_dir + '/' + self.worker_mode + '/data/logs_worker_' + str(
+                    self.worker_id) + '.csv',
                           mode='a', header=False, index=False)
                 alive_steps = self.counter
                 aBGpred_rmse, cBGpred_rmse = self.bgp_buffer.calc_simple_rmse()
-                normo, hypo, sev_hypo, hyper, lgbi, hgbi, ri, sev_hyper = time_in_range(df['cgm'], df['meal'], df['ins'],
-                                                                             self.episode, self.counter, display=False)
+                normo, hypo, sev_hypo, hyper, lgbi, hgbi, ri, sev_hyper = time_in_range(df['cgm'], df['meal'],
+                                                                                        df['ins'],
+                                                                                        self.episode, self.counter,
+                                                                                        display=False)
                 self.save_log([[self.episode, self.counter, df['rew'].sum(), normo, hypo, sev_hypo, hyper, lgbi,
                                 hgbi, ri, sev_hyper, aBGpred_rmse, cBGpred_rmse]],
                               '/' + self.worker_mode + '/data/' + self.worker_mode + '_episode_summary_')

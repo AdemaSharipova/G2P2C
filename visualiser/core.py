@@ -1,7 +1,7 @@
 import sys
-from decouple import config
-MAIN_PATH = config('MAIN_PATH')
-sys.path.insert(1, MAIN_PATH)
+# from decouple import config
+# MAIN_PATH = config('MAIN_PATH')
+MAIN_PATH=' '
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np

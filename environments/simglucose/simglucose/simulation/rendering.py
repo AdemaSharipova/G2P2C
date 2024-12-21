@@ -15,27 +15,30 @@ class Viewer(object):
 
     def initialize(self):
         plt.ion()
-        fig, axes = plt.subplots(4)
+        fig, axes = plt.subplots(5)
 
         axes[0].set_ylabel('BG (mg/dL)')
         axes[1].set_ylabel('CHO (g/min)')
         axes[2].set_ylabel('Insulin (U/min)')
+        axes[3].set_ylabel('Physical Activity')
         axes[3].set_ylabel('Risk Index')
 
         lineBG, = axes[0].plot([], [], label='BG')
         lineCGM, = axes[0].plot([], [], label='CGM')
         lineCHO, = axes[1].plot([], [], label='CHO')
         lineIns, = axes[2].plot([], [], label='Insulin')
-        lineLBGI, = axes[3].plot([], [], label='Hypo Risk')
-        lineHBGI, = axes[3].plot([], [], label='Hyper Risk')
-        lineRI, = axes[3].plot([], [], label='Risk Index')
+        linePA, = axes[3].plot([], [], label='PA')  # Added line for Physical Activity
+        lineLBGI, = axes[4].plot([], [], label='Hypo Risk')
+        lineHBGI, = axes[4].plot([], [], label='Hyper Risk')
+        lineRI, = axes[4].plot([], [], label='Risk Index')
 
-        lines = [lineBG, lineCGM, lineCHO, lineIns, lineLBGI, lineHBGI, lineRI]
+        lines = [lineBG, lineCGM, lineCHO, lineIns, linePA, lineLBGI, lineHBGI, lineRI]  # Updated to include linePA
 
         axes[0].set_ylim([70, 180])
         axes[1].set_ylim([-5, 30])
         axes[2].set_ylim([-0.5, 1])
-        axes[3].set_ylim([0, 5])
+        axes[3].set_ylim([20, 70])  # Set the y-limits for Physical Activity
+        axes[4].set_ylim([0, 5])
 
         for ax in axes:
             ax.set_xlim(
@@ -49,13 +52,13 @@ class Viewer(object):
         axes[0].axhspan(180, 250, alpha=0.3, color='red', lw=0)
         axes[0].axhspan(250, 1000, alpha=0.3, color='darkred', lw=0)
 
-        axes[0].tick_params(labelbottom=False)
-        axes[1].tick_params(labelbottom=False)
-        axes[2].tick_params(labelbottom=False)
-        axes[3].xaxis.set_minor_locator(mdates.AutoDateLocator())
-        axes[3].xaxis.set_minor_formatter(mdates.DateFormatter('%H:%M\n'))
-        axes[3].xaxis.set_major_locator(mdates.DayLocator())
-        axes[3].xaxis.set_major_formatter(mdates.DateFormatter('\n%b %d'))
+        for i in range(4):  # Updated range to exclude the last axis
+            axes[i].tick_params(labelbottom=False)
+
+        axes[4].xaxis.set_minor_locator(mdates.AutoDateLocator())
+        axes[4].xaxis.set_minor_formatter(mdates.DateFormatter('%H:%M\n'))
+        axes[4].xaxis.set_major_locator(mdates.DayLocator())
+        axes[4].xaxis.set_major_formatter(mdates.DateFormatter('\n%b %d'))
 
         axes[0].set_title(self.patient_name)
 
@@ -97,21 +100,29 @@ class Viewer(object):
         adjust_ylim(self.axes[2], min(data['insulin']), max(data['insulin']))
         adjust_xlim(self.axes[2], data.index[-1])
 
-        self.lines[4].set_xdata(data.index.values)
-        self.lines[4].set_ydata(data['LBGI'].values)
-
-        self.lines[5].set_xdata(data.index.values)
-        self.lines[5].set_ydata(data['HBGI'].values)
-
-        self.lines[6].set_xdata(data.index.values)
-        self.lines[6].set_ydata(data['Risk'].values)
+        self.lines[4].set_xdata(data.index.values)  # Added rendering for Physical Activity
+        self.lines[4].set_ydata(data['PhysicalActivity'].values)
 
         self.axes[3].draw_artist(self.axes[3].patch)
         self.axes[3].draw_artist(self.lines[4])
-        self.axes[3].draw_artist(self.lines[5])
-        self.axes[3].draw_artist(self.lines[6])
-        adjust_ylim(self.axes[3], min(data['Risk']), max(data['Risk']))
-        adjust_xlim(self.axes[3], data.index[-1], xlabel=True)
+        adjust_ylim(self.axes[3], min(data['PhysicalActivity']), max(data['PhysicalActivity']))
+        adjust_xlim(self.axes[3], data.index[-1])
+
+        self.lines[5].set_xdata(data.index.values)
+        self.lines[5].set_ydata(data['LBGI'].values)
+
+        self.lines[6].set_xdata(data.index.values)
+        self.lines[6].set_ydata(data['HBGI'].values)
+
+        self.lines[7].set_xdata(data.index.values)
+        self.lines[7].set_ydata(data['Risk'].values)
+
+        self.axes[4].draw_artist(self.axes[4].patch)
+        self.axes[4].draw_artist(self.lines[5])
+        self.axes[4].draw_artist(self.lines[6])
+        self.axes[4].draw_artist(self.lines[7])
+        adjust_ylim(self.axes[4], min(data['Risk']), max(data['Risk']))
+        adjust_xlim(self.axes[4], data.index[-1], xlabel=True)
 
         self.update()
 

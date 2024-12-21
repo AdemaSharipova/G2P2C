@@ -5,20 +5,20 @@ from simglucose.actuator.pump import InsulinPump
 from simglucose.simulation.scenario_gen import RandomScenario
 from simglucose.controller.base import Action
 import numpy as np
-import pkg_resources
+import importlib.resources as pkg_resources
 import gym
 from gym import spaces
 from gym.utils import seeding
 from datetime import datetime
 
-PATIENT_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/vpatient_params.csv')
+file_path = pkg_resources.files('simglucose.params').joinpath('vpatient_params.csv')
+PATIENT_PARA_FILE = str(file_path)
 
 
 class T1DSimEnv(gym.Env):
-    '''
+    """
     A wrapper of simglucose.simulation.env.T1DSimEnv to support gym API
-    '''
+    """
     metadata = {'render.modes': ['human']}
 
     SENSOR_HARDWARE = 'Dexcom'

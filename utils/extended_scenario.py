@@ -1,9 +1,8 @@
-from simglucose.simulation.scenario import Action, Scenario
+from environments.simglucose.simglucose.simulation.scenario import Action, Scenario
 import numpy as np
 from scipy.stats import truncnorm
 from datetime import datetime
 import logging
-from utils.options import Options
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +24,29 @@ class RandomScenario(Scenario):
 
         t_min = np.floor(t_sec / 60.0)
 
+        # Handle meals
         if t_min in self.scenario['meal']['time']:
             logger.info('Time for meal!')
             idx = self.scenario['meal']['time'].index(t_min)
-            return Action(meal=self.scenario['meal']['amount'][idx])
+            meal_amt = self.scenario['meal']['amount'][idx]
         else:
-            return Action(meal=0)
+            meal_amt = 0
+
+        # Handle physical activities
+        pa_intensity = 0
+        for start_time, intensity, duration in zip(
+                self.scenario['activity']['time'],
+                self.scenario['activity']['intensity'],
+                self.scenario['activity']['duration']):
+            if start_time <= t_min < start_time + duration:
+                logger.info('Time for physical activity!')
+                pa_intensity = intensity  # Physical activity is ongoing
+                break
+
+        return Action(meal=meal_amt, physical_activity=pa_intensity)
 
     def create_scenario(self):
-        scenario = {'meal': {'time': [],
-                             'amount': []}}
+        scenario = {'meal': {'time': [], 'amount': []}, 'activity': {'time': [], 'intensity': [], 'duration': []}}
         # Probability of taking each meal
         # [breakfast, snack1, lunch, snack2, dinner, snack3]
         # time_lb = np.array([5, 9, 10, 14, 16, 20]) * 60
@@ -76,6 +88,33 @@ class RandomScenario(Scenario):
 
                 # uniform
                 scenario['meal']['amount'].append(max(round(self.random_gen.uniform(mbar - 3*msd, mbar + 3*msd)), 0))
+
+        # Physical activity-related settings
+        prob_activity = [0.7, 0.2, 0.5]  # Probability for morning, afternoon, and evening activities
+        time_lb_activity = np.array([6, 12, 18]) * 60  # Lower bounds for physical activity time (in minutes)
+        time_ub_activity = np.array([9, 14, 21]) * 60  # Upper bounds for physical activity time (in minutes)
+        time_mu_activity = np.array([7.5, 13, 19.5]) * 60  # Mean times for physical activity (in minutes)
+        time_sigma_activity = [90, 120, 90]  # Standard deviations for activity times (in minutes)
+        intensity_mu_activity = [0.6, 0.4, 0.5]  # Mean intensity (normalized)
+        intensity_mu_activity = [mu * 50 for mu in intensity_mu_activity]  # Scale intensity
+        intensity_sigma_activity = [0.15 * 50, 0.1 * 50, 0.15 * 50]  # Standard deviation for intensities
+
+        # Generate physical activities
+        for p, tlb, tub, tbar, tsd, mbar, msd in zip(
+                prob_activity, time_lb_activity, time_ub_activity, time_mu_activity, time_sigma_activity,
+                intensity_mu_activity, intensity_sigma_activity):
+            if self.random_gen.rand() < p:  # Check the probability of physical activity
+                tact = np.round(truncnorm.rvs(a=(tlb - tbar) / tsd,
+                                              b=(tub - tbar) / tsd,
+                                              loc=tbar,
+                                              scale=tsd,
+                                              random_state=self.random_gen))
+                intensity = max(round(self.random_gen.normal(mbar, msd), 2), 0)  # Calculate activity intensity
+                duration = self.random_gen.randint(30, 90)  # Random duration (30 to 90 minutes)
+
+                scenario['activity']['time'].append(tact)
+                scenario['activity']['intensity'].append(intensity)
+                scenario['activity']['duration'].append(duration)
 
         return scenario
 

@@ -1,10 +1,12 @@
 import pandas as pd
-import pkg_resources
+import importlib.resources
 import logging
 import numpy as np
 
-INSULIN_PUMP_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/pump_params.csv')
+# Import patient parameters
+file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('pump_params.csv')
+INSULIN_PUMP_PARA_FILE = str(file_path)
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +23,7 @@ class InsulinPump(object):
         return cls(params)
 
     def bolus(self, amount):
+        # Calculates and adjusts a bolus dose (quick, meal-time dose) based on input amount and pump parameters.
         bol = amount * self.U2PMOL  # convert from U/min to pmol/min
         bol = np.round(bol / self._params['inc_bolus']
                        ) * self._params['inc_bolus']

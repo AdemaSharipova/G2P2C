@@ -8,13 +8,14 @@ import matplotlib.pyplot as plt
 logger = logging.getLogger(__name__)
 
 
+# Use Johnson transformation to create Noise
 def johnson_transform_SU(xi, lam, gamma, delta, x):
     return xi + lam * np.sinh((x - gamma) / delta)
 
 
 class CGMNoise(object):
     PRECOMPUTE = 10  # length of pre-compute noise sequence
-    MDL_SAMPLE_TIME = 15
+    MDL_SAMPLE_TIME = 15 # chanse in every 15 minutes
 
     def __init__(self, params, n=np.inf, seed=None):
         self._params = params

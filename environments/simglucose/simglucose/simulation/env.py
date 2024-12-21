@@ -1,10 +1,10 @@
-from simglucose.patient.t1dpatient import Action
-from simglucose.analysis.risk import risk_index
+from environments.simglucose.simglucose.patient.t1dpatient import Action
+from environments.simglucose.simglucose.analysis.risk import risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
-from simglucose.simulation.rendering import Viewer
+from environments.simglucose.simglucose.simulation.rendering import Viewer
 
 try:
     from rllab.envs.base import Step
@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 def risk_diff(BG_last_hour):
+    """
+    Calculates the difference in risk between the current blood glucose level and the previous one over the last hour,
+    which indicates whether the current state of the patient's blood glucose level has improved or worsened compared to
+    the previous level
+    """
     if len(BG_last_hour) < 2:
         return 0
     else:
@@ -52,16 +57,16 @@ class T1DSimEnv(object):
         bolus = self.pump.bolus(action.bolus)
         insulin = basal + bolus
         CHO = patient_action.meal
-        patient_mdl_act = Action(insulin=insulin, CHO=CHO)
+        physical_activity = patient_action.physical_activity
 
+        patient_mdl_act = Action(insulin=insulin, CHO=CHO, physical_activity=physical_activity)
         # State update
         self.patient.step(patient_mdl_act)
-
         # next observation
         BG = self.patient.observation.Gsub
         CGM = self.sensor.measure(self.patient)
 
-        return CHO, insulin, BG, CGM
+        return CHO, insulin, BG, CGM, physical_activity
 
     def step(self, action, reward_fun=risk_diff):
         '''
@@ -71,14 +76,16 @@ class T1DSimEnv(object):
         insulin = 0.0
         BG = 0.0
         CGM = 0.0
+        physical_activity = 0.0
 
         for _ in range(int(self.sample_time)):
             # Compute moving average as the sample measurements
-            tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM = self.mini_step(action)
+            tmp_CHO, tmp_insulin, tmp_BG, tmp_CGM, tmp_pa = self.mini_step(action)
             CHO += tmp_CHO / self.sample_time
             insulin += tmp_insulin / self.sample_time
             BG += tmp_BG / self.sample_time
             CGM += tmp_CGM / self.sample_time
+            physical_activity += tmp_pa / self.sample_time
 
         # Compute risk index
         horizon = 1
@@ -87,6 +94,7 @@ class T1DSimEnv(object):
         # Record current action
         self.CHO_hist.append(CHO)
         self.insulin_hist.append(insulin)
+        self.pa_hist.append(physical_activity)
 
         # Record next observation
         self.time_hist.append(self.time)
@@ -110,6 +118,7 @@ class T1DSimEnv(object):
             sample_time=self.sample_time,
             patient_name=self.patient.name,
             meal=CHO,
+            physical_activity=physical_activity,
             patient_state=self.patient.state)
 
     def _reset(self):
@@ -127,6 +136,7 @@ class T1DSimEnv(object):
         self.LBGI_hist = [LBGI]
         self.HBGI_hist = [HBGI]
         self.CHO_hist = []
+        self.pa_hist = []
         self.insulin_hist = []
 
     def reset(self):
@@ -144,6 +154,7 @@ class T1DSimEnv(object):
             sample_time=self.sample_time,
             patient_name=self.patient.name,
             meal=0,
+            physical_activity=0,
             patient_state=self.patient.state)
 
     def render(self, close=False):
@@ -165,6 +176,7 @@ class T1DSimEnv(object):
         df['CGM'] = pd.Series(self.CGM_hist)
         df['CHO'] = pd.Series(self.CHO_hist)
         df['insulin'] = pd.Series(self.insulin_hist)
+        df['PhysicalActivity'] = pd.Series(self.pa_hist)
         df['LBGI'] = pd.Series(self.LBGI_hist)
         df['HBGI'] = pd.Series(self.HBGI_hist)
         df['Risk'] = pd.Series(self.risk_hist)

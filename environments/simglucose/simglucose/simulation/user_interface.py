@@ -9,7 +9,7 @@ from simglucose.simulation.scenario import CustomScenario
 from simglucose.analysis.report import report
 import pandas as pd
 import copy
-import pkg_resources
+import importlib.resources
 import logging
 import os
 from datetime import datetime
@@ -19,12 +19,14 @@ import platform
 
 logger = logging.getLogger(__name__)
 
-PATIENT_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/vpatient_params.csv')
-SENSOR_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/sensor_params.csv')
-INSULIN_PUMP_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/pump_params.csv')
+patient_file_path = importlib.resources.files('simglucose.params').joinpath('vpatient_params.csv')
+PATIENT_PARA_FILE = str(patient_file_path)
+
+sensor_file_path = importlib.resources.files('simglucose.params').joinpath('sensor_params.csv')
+SENSOR_PARA_FILE = str(sensor_file_path)
+
+insulin_file_path = importlib.resources.files('simglucose.params').joinpath('pump_params.csv')
+INSULIN_PUMP_PARA_FILE = str(insulin_file_path)
 
 
 def pick_patients():

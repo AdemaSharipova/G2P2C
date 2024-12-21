@@ -286,8 +286,8 @@ if __name__ == '__main__':
     # logger.addHandler(fh)
     logger.addHandler(ch)
     # For test only
-    path = os.path.join('..', '..', 'examples', 'results',
-                        '2017-12-31_17-46-32')
+    path = os.path.join('..', '..', 'results',
+                        '2024-12-02_04-33-16')
     os.chdir(path)
     filename = glob.glob('*#*.csv')
     name = [_f[:-4] for _f in filename]

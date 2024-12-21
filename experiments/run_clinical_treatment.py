@@ -7,8 +7,7 @@ import numpy as np
 from pprint import pprint
 import pandas as pd
 import sys
-from decouple import config
-MAIN_PATH = config('MAIN_PATH')
+MAIN_PATH='/Users/adema/VSProjects/RL/G2P2C'
 sys.path.insert(1, MAIN_PATH)
 from utils.options import Options
 from utils.core import time_in_range, get_patient_env, set_logger, custom_reward, get_env, combined_shape

@@ -1,10 +1,12 @@
 import pandas as pd
-import pkg_resources
+import importlib.resources
 from collections import deque
 
+patient_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('vpatient_params.csv')
+PATIENT_PARA_FILE = str(patient_file_path)
 
-CONTROL_QUEST = pkg_resources.resource_filename('simglucose', 'params/Quest.csv')
-PATIENT_PARA_FILE = pkg_resources.resource_filename('simglucose', 'params/vpatient_params.csv')
+quest_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('Quest.csv')
+CONTROL_QUEST = str(quest_file_path)
 
 
 class BasalBolusController:

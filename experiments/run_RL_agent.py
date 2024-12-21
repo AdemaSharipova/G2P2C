@@ -7,8 +7,8 @@ import random
 import numpy as np
 import argparse
 from pprint import pprint
-from decouple import config
-MAIN_PATH = config('MAIN_PATH')
+
+MAIN_PATH='/Users/adema/VSProjects/RL/G2P2C'
 sys.path.insert(1, MAIN_PATH)
 from utils.core import set_logger, get_patient_env
 from utils.options import Options

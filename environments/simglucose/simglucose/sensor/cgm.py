@@ -1,13 +1,12 @@
-# from .noise_gen import CGMNoiseGenerator
 from .noise_gen import CGMNoise
 import pandas as pd
 import logging
-import pkg_resources
+import importlib.resources
 
 logger = logging.getLogger(__name__)
-SENSOR_PARA_FILE = pkg_resources.resource_filename(
-    'simglucose', 'params/sensor_params.csv')
-
+# Import patient parameters
+file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('sensor_params.csv')
+SENSOR_PARA_FILE = str(file_path)
 
 class CGMSensor(object):
     def __init__(self, params, seed=None):

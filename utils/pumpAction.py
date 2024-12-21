@@ -1,10 +1,13 @@
 import math
 import pandas as pd
-import pkg_resources
+import importlib.resources
 from agents.std_bb.BBController import BasalBolusController
 
-CONTROL_QUEST = pkg_resources.resource_filename('simglucose', 'params/Quest.csv')
-PATIENT_PARA_FILE = pkg_resources.resource_filename('simglucose', 'params/vpatient_params.csv')
+patient_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('vpatient_params.csv')
+PATIENT_PARA_FILE = str(patient_file_path)
+
+quest_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('Quest.csv')
+CONTROL_QUEST = str(quest_file_path)
 
 
 class Pump:
@@ -38,6 +41,7 @@ class Pump:
         return self.basal
 
     def get_bolus(self, state, info):
+        # Default behavior: bolus depends on meals
         if self.t_meal == 0:  # no meal announcement
             carbs = info['meal'] * info['sample_time']
             bolus_carbs = carbs
@@ -45,6 +49,13 @@ class Pump:
             bolus_carbs = info['future_carb']
         else:
             bolus_carbs = 0
+
+        # Adjust bolus based on physical activity
+        if 'activity_status' in info and info['activity_status'] == "Physical Activity Ongoing":
+            activity_intensity = info['activity_intensity']
+            bolus_carbs -= activity_intensity * self.action_scale * 0.1  # Adjust carbs for activity effect
+            bolus_carbs = max(0, bolus_carbs)  # Prevent negative carbs
+
         self.bolus = self.expert.get_bolus(meal=bolus_carbs, glucose=state.CGM)
 
     def action(self, agent_action=None, prev_state=None, prev_info=None):
