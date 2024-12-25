@@ -48,7 +48,7 @@ class PPO:
         self.rollout_buffer = {}
         self.old_states = torch.rand(self.n_training_workers, self.n_step, self.feature_history, self.n_features,
                                      device=self.device)
-        self.feat = torch.rand(self.n_training_workers, self.n_step, 1, self.n_handcrafted_features, device=self.device)
+        self.feat = torch.rand(self.n_training_workers, self.n_step, 6, device=self.device)
         self.old_actions = torch.rand(self.n_training_workers, self.n_step, device=self.device)
         self.old_logprobs = torch.rand(self.n_training_workers, self.n_step, device=self.device)
         self.reward = torch.rand(self.n_training_workers, self.n_step, device=self.device)

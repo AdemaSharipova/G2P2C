@@ -1,4 +1,4 @@
-from environments.simglucose.simglucose.simulation.scenario import Action, Scenario
+from G2P2C.environments.simglucose.simglucose.simulation.scenario import Action, Scenario
 import numpy as np
 from scipy.stats import truncnorm
 from datetime import datetime
@@ -17,7 +17,6 @@ class RandomScenario(Scenario):
         # t must be datetime.datetime object
         delta_t = t - datetime.combine(t.date(), datetime.min.time())
         t_sec = delta_t.total_seconds()
-
         if t_sec < 1:
             logger.info('Creating new one day scenario ...')
             self.scenario = self.create_scenario()
@@ -90,7 +89,7 @@ class RandomScenario(Scenario):
                 scenario['meal']['amount'].append(max(round(self.random_gen.uniform(mbar - 3*msd, mbar + 3*msd)), 0))
 
         # Physical activity-related settings
-        prob_activity = [0.7, 0.2, 0.5]  # Probability for morning, afternoon, and evening activities
+        prob_activity = [1, 0.2, 0.5]  # Probability for morning, afternoon, and evening activities
         time_lb_activity = np.array([6, 12, 18]) * 60  # Lower bounds for physical activity time (in minutes)
         time_ub_activity = np.array([9, 14, 21]) * 60  # Upper bounds for physical activity time (in minutes)
         time_mu_activity = np.array([7.5, 13, 19.5]) * 60  # Mean times for physical activity (in minutes)

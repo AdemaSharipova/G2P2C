@@ -4,7 +4,7 @@ import logging
 import numpy as np
 
 # Import patient parameters
-file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('pump_params.csv')
+file_path = importlib.resources.files('G2P2C.environments.simglucose.simglucose.params').joinpath('pump_params.csv')
 INSULIN_PUMP_PARA_FILE = str(file_path)
 
 logger = logging.getLogger(__name__)

@@ -1,10 +1,10 @@
-from environments.simglucose.simglucose.patient.t1dpatient import Action
-from environments.simglucose.simglucose.analysis.risk import risk_index
+from G2P2C.environments.simglucose.simglucose.patient.t1dpatient import Action
+from G2P2C.environments.simglucose.simglucose.analysis.risk import risk_index
 import pandas as pd
 from datetime import timedelta
 import logging
 from collections import namedtuple
-from environments.simglucose.simglucose.simulation.rendering import Viewer
+from G2P2C.environments.simglucose.simglucose.simulation.rendering import Viewer
 
 try:
     from rllab.envs.base import Step

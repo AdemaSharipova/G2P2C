@@ -26,13 +26,7 @@ class Scenario:
 
 class CustomScenario(Scenario):
     def __init__(self, start_time=None, scenario=None):
-        """
-        scenario - a list of tuples (time, action), where time is a datetime or
-                   timedelta or double, action is a namedtuple defined by
-                   scenario.Action. When time is a timedelta, it is
-                   interpreted as the time of start_time + time. Time in double
-                   type is interpreted as time in timedelta with unit of hours
-        """
+
         Scenario.__init__(self, start_time=start_time)
         if scenario is None:
             scenario = self.input_scenario()

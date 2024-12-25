@@ -5,7 +5,7 @@ import importlib.resources
 
 logger = logging.getLogger(__name__)
 # Import patient parameters
-file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('sensor_params.csv')
+file_path = importlib.resources.files('G2P2C.environments.simglucose.simglucose.params').joinpath('sensor_params.csv')
 SENSOR_PARA_FILE = str(file_path)
 
 class CGMSensor(object):

@@ -2,7 +2,8 @@ def set_args(args):
 
     # args.action_type = 'exponential'  # 'normal', quadratic, proportional_quadratic, exponential
     # pass through cmd line
-
+    args.use_physical_activity = 1
+    args.n_activity_features = 2
     args.feature_history = 12
     args.calibration = 12
     args.action_scale = 5

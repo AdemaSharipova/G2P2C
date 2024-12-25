@@ -13,7 +13,7 @@ class Memory:
         self.lambda_ = args.lambda_
         self.handcrafted_features = args.n_handcrafted_features
         self.observation = np.zeros(core.combined_shape(self.size, (self.feature_hist, self.features)), dtype=np.float32)
-        self.state_features = np.zeros(core.combined_shape(self.size, (1, self.handcrafted_features)), dtype=np.float32)
+        self.state_features = []
         self.actions = np.zeros(self.size, dtype=np.float32)
         self.rewards = np.zeros(self.size, dtype=np.float32)
         self.state_values = np.zeros(self.size + 1, dtype=np.float32)
@@ -22,11 +22,16 @@ class Memory:
         self.cgm_target = np.zeros(self.size, dtype=np.float32)
         self.ptr, self.path_start_idx, self.max_size = 0, 0, self.size
 
-    def store(self, obs, features, act, rew, val, logp, cgm_target, counter):
+    def store(self, obs, features, act, rew, val, logp, cgm_target, counter, activity=None):
         assert self.ptr < self.max_size
+        if len(self.state_features) < self.ptr + 1:
+            self.state_features.append(np.array(features, dtype=np.float32))
+        else:
+            self.state_features[self.ptr] = np.array(features, dtype=np.float32)
+
         self.observation[self.ptr] = obs
-        self.state_features[self.ptr] = features
         self.actions[self.ptr] = act
+        self.physical_activity[self.ptr] = activity
         self.rewards[self.ptr] = rew
         self.state_values[self.ptr] = val
         self.logprobs[self.ptr] = logp

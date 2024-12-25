@@ -45,7 +45,7 @@ class T1DSimEnv(gym.Env):
 
         self.meal_announce_time = args.t_meal
 
-    def _step(self, action):
+    def step(self, action):
         # This gym only controls basal insulin
         act = Action(basal=action, bolus=0)
 
@@ -128,7 +128,7 @@ class T1DSimEnv(gym.Env):
         # If no activity is ongoing
         return None, 0, "No Activity"
 
-    def _reset(self):
+    def reset(self):
         self.env, _, _, _ = self._create_env_from_random_state()
         obs, _, _, _ = self.env.reset()
         return obs
@@ -158,7 +158,7 @@ class T1DSimEnv(gym.Env):
         env = _T1DSimEnv(patient, sensor, pump, scenario)
         return env, seed2, seed3, seed4
 
-    def _render(self, mode='human', close=False):
+    def render(self, mode='human', close=False):
         self.env.render(close=close)
 
     @property

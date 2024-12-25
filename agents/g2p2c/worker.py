@@ -85,8 +85,7 @@ class Worker:
             reward = composite_reward(self.args, state=state.CGM, reward=_reward)
             self.bgp_buffer.update(policy_step['a_cgm'], policy_step['c_cgm'], state.CGM)
             # Calculate the horizon predicted error RMSE
-            horizon_calc_done, err = self.CGPredHorizon.update(self.cur_state, self.feat, policy_step['action'][0],
-                                                               state.CGM, policy)
+            horizon_calc_done, err = self.CGPredHorizon.update(self.cur_state, self.feat, policy_step['action'][0], state.CGM, policy)
             if horizon_calc_done:
                 a_horizonBG_rmse += err[0]
                 horizon_rmse_count += 1

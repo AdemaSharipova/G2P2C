@@ -1,6 +1,6 @@
 import sys
-from decouple import config
-MAIN_PATH = config('MAIN_PATH')
+
+MAIN_PATH='/Users/adema/VSProjects/RL/G2P2C'
 sys.path.insert(1, MAIN_PATH)
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -97,13 +97,14 @@ def get_summary_stats(cohort, algo_type, algorithm, algoAbbreviation, metric=['m
         data = []
         for s in seeds:
             if algo_type == 'rl':
-                FOLDER_PATH='/results/'+cohort+'/'+algorithm+'/'+algoAbbreviation+sub+'_'+s+'/testing/data'
+                FOLDER_PATH='/results/test'+ '/testing/data'
             else:
                 FOLDER_PATH='/results/'+cohort+'/'+algorithm
             for i in range(0, n_trials):
                 if algo_type == 'rl':
-                    test_i = 'logs_worker_'+str(6000+i)+'.csv'
-                    df = pd.read_csv(MAIN_PATH +FOLDER_PATH+ '/'+test_i)
+                    test_i = 'logs_worker_'+str(5000+i)+'.csv'
+                    full_path = MAIN_PATH +FOLDER_PATH+ '/'+test_i
+                    df = pd.read_csv(full_path)
                 else:
                     if cohort == 'adolescent':
                         test_i = 'logs_worker_'+sub+'_'+str(i)+'.csv'

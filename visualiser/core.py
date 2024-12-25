@@ -105,11 +105,11 @@ def display_commands(arr):
 
 class ExperimentVisualise:
     def __init__(self, id, version=1.0, plot_version=0, test_seeds=None):
-        self.MAIN_PATH = '../../results/' + id + '/'
+        self.MAIN_PATH = '/Users/adema/VSProjects/RL/G2P2C/results/test/'
         self.id = id
         self.version = version
         self.plot_version = plot_version
-        with open(self.MAIN_PATH + 'args.json') as json_file:
+        with open('/Users/adema/VSProjects/RL/G2P2C/results/test/args.json') as json_file:
             self.args = json.load(json_file)
         self.training_workers = self.args['n_training_workers']
         self.testing_workers = self.args['n_testing_workers']
@@ -173,9 +173,9 @@ class ExperimentVisualise:
 
     def get_test_episode(self, tester, episode):
         if self.version == 1.0:
-            df = pd.read_csv(self.MAIN_PATH + '/testing/data/logs_test_worker_' + str(self.testing_seeds[tester]) +'.csv')
+            df = pd.read_csv(self.MAIN_PATH + 'training/data/logs_test_worker_' + str(self.testing_seeds[tester]) +'.csv')
         elif self.version == 1.1:
-            df = pd.read_csv(self.MAIN_PATH + '/testing/data/logs_worker_' + str(self.testing_seeds[tester]) + '.csv')
+            df = pd.read_csv(self.MAIN_PATH + 'training/data/logs_worker_' + str(self.training_seeds[tester]) + '.csv')
         df = df.loc[df['epi'] == episode]
         if self.plot_version == 1.0:
             df['day_hour'] = df['day_hour'].astype(int)
@@ -451,8 +451,10 @@ def plot_episode(experiment, tester, episode):
     #ax.set_ylim((5, 600))
 
     cgm_color = '#000080'
+    black_color = '#000000'
     ins_color = 'mediumseagreen'
     meal_color = '#800000'
+    phys_color = 'orange'
 
     max_ins = max(df['ins'])
     max_cgm = min(max(df['cgm']) + 100, 620) # ,
@@ -484,6 +486,49 @@ def plot_episode(experiment, tester, episode):
 
             x = not(x)
 
+        activity_start = None  # Track the start of a continuous activity
+        x = True
+
+        for t in range(0, len(df)):
+            intensity = df.iloc[t]['activity_intensity']
+            duration = df.iloc[t]['activity_duration']
+
+            if intensity and duration:
+                if activity_start is None:  # Start a new activity block
+                    activity_start = t
+                continue  # Skip plotting for each intermediate point
+            elif activity_start is not None:  # End of a continuous activity block
+                # Calculate the start and end times for the block
+                start_time = df.iloc[activity_start]['time']
+                end_time = df.iloc[t - 1]['time']
+                mean_intensity = df.iloc[activity_start:t]['activity_intensity'].mean()
+                total_duration = df.iloc[activity_start:t]['activity_duration'].sum()
+
+                # Add a shaded region to indicate continuous activity
+                ax.axvspan(start_time, end_time, alpha=0.3, color=phys_color)
+
+                # Annotate the activity at the midpoint of the block
+                phys_off_set = (max_cgm - 200) if x else (max_cgm - 150)
+                midpoint = start_time + (end_time - start_time) / 2
+                ax.annotate(f'Activity: {mean_intensity:.1f}x', (midpoint, phys_off_set),
+                            color=black_color)
+
+                x = not x  # Alternate the offset
+                activity_start = None  # Reset the block
+
+        # Finalize any activity that lasts until the end of the DataFrame
+        if activity_start is not None:
+            start_time = df.iloc[activity_start]['time']
+            end_time = df.iloc[-1]['time']
+            mean_intensity = df.iloc[activity_start:]['activity_intensity'].mean()
+            total_duration = df.iloc[activity_start:]['activity_duration'].sum()
+
+            ax.axvspan(start_time, end_time, alpha=0.3, color=phys_color)
+            midpoint = start_time + (end_time - start_time) / 2
+            phys_off_set = (max_cgm - 200) if x else (max_cgm - 150)
+            ax.annotate(f'Activity: {mean_intensity:.1f }', (midpoint, phys_off_set),
+                        color=black_color)
+
     if experiment.plot_version == 1:
         start_time = df['time'].iloc[0]  # end_time = df['time'].iloc[-1]
         ax2.set_xlim([start_time, start_time + timedelta(hours=24)]) # start_time + timedelta(hours=3)]
@@ -509,6 +554,8 @@ def plot_episode(experiment, tester, episode):
     cgm_line = mlines.Line2D([], [], color=cgm_color, label='CGM (Sensor: GuardianRT)')
     ins_line = mlines.Line2D([], [], color=ins_color, label='Insulin (Pump: Insulet)')
     meal_ann_line = mlines.Line2D([], [], color='k', marker='D', linestyle='None', label='Meal Announcement (20min)')
+    phys_ann_line = mlines.Line2D([], [], color=phys_color, linestyle='-', label='Physical Activity')
+
     ax.legend(handles=[cgm_line, ins_line], loc='upper right')  # meal_ann_line
 
     ax.axhline(y=250, color='r', linestyle='--')
@@ -614,6 +661,8 @@ def plot_episode_new(experiment, tester, episode):
 
 
 def plot_episode_dynamic(experiment, tester, episode, window):
+    phys_color = 'darkorange'
+    black_color = 'black'
     df = experiment.get_test_episode(tester, episode)
     fig = plt.figure(figsize=(16, 6))
     #ax = fig.add_subplot(111)
@@ -662,6 +711,49 @@ def plot_episode_dynamic(experiment, tester, episode, window):
 
             x = not(x)
 
+    activity_start = None  # Track the start of a continuous activity
+    x = True
+
+    for t in range(0, len(df)):
+        intensity = df.iloc[t]['activity_intensity']
+        duration = df.iloc[t]['activity_duration']
+
+        if intensity and duration:
+            if activity_start is None:  # Start a new activity block
+                activity_start = t
+            continue  # Skip plotting for each intermediate point
+        elif activity_start is not None:  # End of a continuous activity block
+            # Calculate the start and end times for the block
+            start_time = df.iloc[activity_start]['time']
+            end_time = df.iloc[t - 1]['time']
+            mean_intensity = df.iloc[activity_start:t]['activity_intensity'].mean()
+            total_duration = df.iloc[activity_start:t]['activity_duration'].sum()
+
+            # Add a shaded region to indicate continuous activity
+            ax.axvspan(start_time, end_time, alpha=0.3, color=phys_color)
+
+            # Annotate the activity at the midpoint of the block
+            phys_off_set = (max_cgm - 200) if x else (max_cgm - 150)
+            midpoint = start_time + (end_time - start_time) / 2
+            ax.annotate(f'Activity: {mean_intensity}x', (midpoint, phys_off_set),
+                        color=black_color)
+
+            x = not x  # Alternate the offset
+            activity_start = None  # Reset the block
+
+    # Finalize any activity that lasts until the end of the DataFrame
+    if activity_start is not None:
+        start_time = df.iloc[activity_start]['time']
+        end_time = df.iloc[-1]['time']
+        mean_intensity = df.iloc[activity_start:]['activity_intensity'].mean()
+        total_duration = df.iloc[activity_start:]['activity_duration'].sum()
+
+        ax.axvspan(start_time, end_time, alpha=0.3, color=phys_color)
+        midpoint = start_time + (end_time - start_time) / 2
+        phys_off_set = (max_cgm - 200) if x else (max_cgm - 150)
+        ax.annotate(f'Activity: {mean_intensity:.1f }', (midpoint, phys_off_set),
+                    color=black_color)
+
     if experiment.plot_version == 1:
         start_time = df['time'].iloc[0]  # end_time = df['time'].iloc[-1]
         ax2.set_xlim([start_time, start_time + timedelta(hours=24)]) # start_time + timedelta(hours=3)]
@@ -693,7 +785,7 @@ def plot_episode_dynamic(experiment, tester, episode, window):
     # ax.text(df.iloc[1]['time'], 310, 'Severe Hyperglycemia', size=12, color='r')
     # ax.text(df.iloc[1]['time'], 280, 'Hyperglycemia', size=12)
     # ax.text(df.iloc[1]['time'], 100, 'Normoglcemia', size=12, color=cgm_color)
-    # ax.text(df.iloc[1]['time'], 54, 'Hypoglycemia', size=12)
+    # ax.text(df.iloc[1]['ime'], 54, 'Hypoglycemia', size=12)
     # ax.text(df.iloc[1]['time'], 30, 'Severe Hypoglycemia', size=12, color='r')
 
     #fig.savefig(experiment.experiment_dir +'/'+ str(tester))

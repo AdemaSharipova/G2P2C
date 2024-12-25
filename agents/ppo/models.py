@@ -10,6 +10,8 @@ class FeatureExtractor(nn.Module):
     def __init__(self, args):
         super(FeatureExtractor, self).__init__()
         self.n_features = args.n_features
+        self.use_physical_activity = args.use_physical_activity
+        self.n_activity_features = args.n_activity_features  # 2 => intensity, duration
         self.n_handcrafted_features = args.n_handcrafted_features
         self.use_handcraft = args.use_handcraft
         self.n_hidden = args.n_hidden
@@ -19,7 +21,7 @@ class FeatureExtractor(nn.Module):
         self.LSTM = nn.LSTM(input_size=self.n_features, hidden_size=self.n_hidden, num_layers=self.n_layers,
                             batch_first=True, bidirectional=self.bidirectional)  # (seq_len, batch, input_size)
 
-    def forward(self, s, feat, mode):
+    def forward(self, s, feat, mode, activity=None):
         if mode == 'batch':
             output, (hid, cell) = self.LSTM(s)
             lstm_output = hid.view(hid.size(1), -1)  # => batch , layers * hid
@@ -35,6 +37,19 @@ class FeatureExtractor(nn.Module):
                 extract_states = torch.cat((lstm_output, feat), dim=1)  # ==>torch.size[256 + 5]
             else:
                 extract_states = torch.cat((lstm_output, feat), dim=0)
+        elif self.use_physical_activity == 1:  # only activity features
+
+            if mode == 'batch':
+                if activity is not None:
+                    activity = activity.expand(lstm_output.size(0), -1)
+                else:
+                    activity = torch.zeros(lstm_output.size(0), 2, device=lstm_output.device)
+                print(activity.shape)
+                print(lstm_output.shape)
+                extract_states = torch.cat([lstm_output, activity], dim=1)
+            else:
+                activity = activity.squeeze(0)
+                extract_states = torch.cat([lstm_output, activity], dim=0)
         else:
             extract_states = lstm_output
         # note: extract_states and lstm_output is only different when handcraft features are used.
@@ -48,12 +63,20 @@ class ActionModule(nn.Module):
         self.args = args
         self.n_handcrafted_features = args.n_handcrafted_features
         self.use_handcraft = args.use_handcraft
+        self.use_physical_activity = args.use_physical_activity
+        self.n_activity_features = args.n_activity_features
         self.output = args.n_action
         self.n_hidden = args.n_hidden
         self.n_layers = args.n_rnn_layers
         self.directions = args.rnn_directions
-        self.feature_extractor = self.n_hidden * self.n_layers * self.directions + \
-                                 (self.n_handcrafted_features * self.use_handcraft)
+
+        base_features = self.n_hidden * self.n_layers * self.directions
+        if self.use_handcraft == 1:
+            base_features += self.n_handcrafted_features
+        if self.use_physical_activity == 1:
+            base_features += self.n_activity_features
+        self.feature_extractor = base_features
+
         self.last_hidden = self.feature_extractor * 2
         self.fc_layer1 = nn.Linear(self.feature_extractor, self.last_hidden)
         self.fc_layer2 = nn.Linear(self.last_hidden, self.last_hidden)
@@ -90,11 +113,21 @@ class ValueModule(nn.Module):
         self.output = args.n_action
         self.n_handcrafted_features = args.n_handcrafted_features
         self.use_handcraft = args.use_handcraft
+
+        self.use_physical_activity = args.use_physical_activity
+        self.n_activity_features = args.n_activity_features
+
         self.n_hidden = args.n_hidden
         self.n_layers = args.n_rnn_layers
         self.directions = args.rnn_directions
-        self.feature_extractor = self.n_hidden * self.n_layers * self.directions + \
-                                 (self.n_handcrafted_features * self.use_handcraft)
+
+        base_features = self.n_hidden * self.n_layers * self.directions
+        if self.use_handcraft == 1:
+            base_features += self.n_handcrafted_features
+        if self.use_physical_activity == 1:
+            base_features += self.n_activity_features
+
+        self.feature_extractor = base_features
         self.last_hidden = self.feature_extractor * 2
         self.fc_layer1 = nn.Linear(self.feature_extractor, self.last_hidden)
         self.fc_layer2 = nn.Linear(self.last_hidden, self.last_hidden)
@@ -117,8 +150,8 @@ class ActorNetwork(nn.Module):
         self.FeatureExtractor = FeatureExtractor(args)
         self.ActionModule = ActionModule(args, self.device)
 
-    def forward(self, s, feat, old_action, mode, is_training=False):
-        extract_states, lstmOut = self.FeatureExtractor.forward(s, feat, mode)
+    def forward(self, s, feat, old_action, mode, is_training=False, activity=None):
+        extract_states, lstmOut = self.FeatureExtractor.forward(s, feat, mode, activity=activity)
         mu, sigma, action, log_prob = self.ActionModule.forward(extract_states)
         return mu, sigma, action, log_prob
 
@@ -129,8 +162,8 @@ class CriticNetwork(nn.Module):
         self.FeatureExtractor = FeatureExtractor(args)
         self.ValueModule = ValueModule(args, device)
 
-    def forward(self, s, feat, mode='forward'):
-        extract_states, lstmOut = self.FeatureExtractor.forward(s, feat, mode)
+    def forward(self, s, feat, mode='forward', activity=None):
+        extract_states, lstmOut = self.FeatureExtractor.forward(s, feat, mode, activity)
         value = self.ValueModule.forward(extract_states)
         return value
 
@@ -148,22 +181,28 @@ class ActorCritic(nn.Module):
         self.distribution = torch.distributions.Normal
         self.is_testing_worker = False
 
-    def predict(self, s, feat):  # forward func for networks
+    def predict(self, s, feat, activity=None):  # forward func for networks
         s = torch.as_tensor(s, dtype=torch.float32, device=self.device)
         feat = torch.as_tensor(feat, dtype=torch.float32, device=self.device)
-        mean, std, action, log_prob = self.Actor(s, feat, None, mode='forward', is_training=self.is_testing_worker)
-        state_value = self.Critic(s, feat, mode='forward' )
+        if activity is not None:
+            activity = torch.as_tensor(activity, dtype=torch.float32, device=self.device)
+
+        mean, std, action, log_prob = self.Actor(s, feat, None, mode='forward', is_training=self.is_testing_worker,
+                                                 activity=activity)
+        state_value = self.Critic(s, feat, mode='forward', activity=activity)
         return mean, std, action, log_prob, state_value
 
-    def get_action(self, s, feat):  # pass values to worker for simulation on cpu.
-        mu, std, act, log_prob, s_val = self.predict(s, feat)
+    def get_action(self, s, feat, activity=None):  # pass values to worker for simulation on cpu.
+        mu, std, act, log_prob, s_val = self.predict(s, feat, activity)
         data = dict(mu=mu, std=std, action=act, log_prob=log_prob, state_value=s_val)
         return {k: v.detach().cpu().numpy() for k, v in data.items()}
 
-    def get_final_value(self, s, feat):  # terminating V(s) of traj
+    def get_final_value(self, s, feat, activity=None):  # terminating V(s) of traj
         s = torch.as_tensor(s, dtype=torch.float32, device=self.device)
         feat = torch.as_tensor(feat, dtype=torch.float32, device=self.device)
-        state_value = self.Critic(s, feat, mode='forward' )
+        if activity is not None:
+            activity = torch.as_tensor(activity, dtype=torch.float32, device=self.device)
+        state_value = self.Critic(s, feat, mode='forward', activity=activity)
         return state_value.detach().cpu().numpy()
 
     def evaluate_actor(self, state, action, feat):  # evaluate actor <batch>

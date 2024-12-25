@@ -2,10 +2,10 @@ import pandas as pd
 import importlib.resources
 import random
 
-patient_file_path = importlib.resources.files('simglucose.params').joinpath('vpatient_params.csv')
+patient_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('vpatient_params.csv')
 PATIENT_PARA_FILE = str(patient_file_path)
 
-quest_file_path = importlib.resources.files('simglucose.params').joinpath('Quest.csv')
+quest_file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('Quest.csv')
 CONTROL_QUEST = str(quest_file_path)
 
 # paper: https://www.liebertpub.com/doi/full/10.1089/dia.2019.0502

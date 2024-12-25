@@ -15,7 +15,7 @@ Action = namedtuple("patient_action", ["CHO", "insulin", "physical_activity"])
 Observation = namedtuple("observation", ["Gsub"])
 
 # Import patient parameters
-file_path = importlib.resources.files('environments.simglucose.simglucose.params').joinpath('vpatient_params.csv')
+file_path = importlib.resources.files('G2P2C.environments.simglucose.simglucose.params').joinpath('vpatient_params.csv')
 PATIENT_PARA_FILE = str(file_path)
 class T1DPatient(Patient):
     SAMPLE_TIME = 1  # defines the frequency of updates in the patient’s state, set to every minute
@@ -106,7 +106,6 @@ class T1DPatient(Patient):
 
         # ODE solver
         print('Current simulation time: {}'.format(self.t))
-        print(self._last_Qsto)
         self._odesolver.set_f_params(
             action, self._params, self._last_Qsto, self._last_foodtaken)
         if self._odesolver.successful():
